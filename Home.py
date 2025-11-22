@@ -1,13 +1,13 @@
 # Home.py
 import streamlit as st
 import numpy as np
-from datetime import datetime, timedelta, date
+from datetime import date, timedelta
 import plotly.express as px
 from utils import *
 
 st.set_page_config(page_title="EWU FUB BEMS", layout="wide")
 
-# Custom beautiful CSS
+# Beautiful CSS
 st.markdown("""
 <style>
     .room-tile {
@@ -45,8 +45,10 @@ elif period == "Last 30 Days":
     start_date = end_date - timedelta(days=29)
 else:  # Custom Range
     col1, col2 = st.columns(2)
-    start_date = col1.date_input("From", date.today() - timedelta(days=7))
-    end_date = col2.date_input("To", date1.today())
+    with col1:
+        start_date = st.date_input("From", date.today() - timedelta(days=7))
+    with col2:
+        end_date = st.date_input("To", date.today())
 
 # Load data
 rooms = get_rooms()
@@ -59,18 +61,25 @@ savings = total_kwh * 0.20
 
 # Big metrics
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Energy Used", f"{total_kwh:.1f} kWh", f"{start_date} → {end_date}")
+c1.metric("Total Energy Used", f"{total_kwh:.1f} kWh", f"{start_date} to {end_date}")
 c2.metric("Estimated Cost", f"৳ {total_taka:.0f}")
 c3.metric("Carbon Emission", f"{total_gco2:,} gCO₂")
 c4.metric("Savings by Schedule", f"{savings:.1f} kWh", "+20% reduction")
 
-# IT vs Non-IT Pie Chart
-it_kwh = calculate_stats(period_data[period_data['load_type'] == 'IT'])[0] if len(period_data[period_data['load_type'] == 'IT']) > 0 else 0
-non_it_kwh = calculate_stats(period_data[period_data['load_type'] == 'Non-IT'])[0] if len(period_data[period_data['load_type'] == 'Non-IT']) > 0 else 0
+# IT vs Non-IT Pie Chart – FIXED KeyError
+it_data = period_data[period_data['load_type'] == 'IT']
+non_it_data = period_data[period_data['load_type'] == 'Non-IT']
 
-fig = px.pie(values=[it_kwh, non_it_kwh], names=['IT Loads', 'Non-IT Loads'],
-             color_discrete_sequence=['#00d4aa', '#ff4757'], hole=0.4)
-fig.update_layout(template="plotly_dark", title="Energy: IT vs Non-IT Loads")
+it_kwh = calculate_stats(it_data)[0] if len(it_data) > 0 else 0
+non_it_kwh = calculate_stats(non_it_data)[0] if len(non_it_data) > 0 else 0
+
+fig = px.pie(
+    values=[it_kwh, non_it_kwh],
+    names=['IT Loads', 'Non-IT Loads'],
+    color_discrete_sequence=['#00d4aa', '#ff4757'],
+    hole=0.4
+)
+fig.update_layout(template="plotly_dark", title="Energy Consumption: IT vs Non-IT")
 st.plotly_chart(fig, use_container_width=True)
 
 # Room Tiles
@@ -82,6 +91,7 @@ for idx, room in rooms.iterrows():
         dev = devices[devices['room_id'] == room.room_id].iloc[0]
         live = get_current_readings(dev)
         live_power = live['power']
+        
         room_period = period_data[period_data['device_id'] == dev['device_id']]
         period_kwh = calculate_stats(room_period)[0] if len(room_period) > 0 else 0.0
 
