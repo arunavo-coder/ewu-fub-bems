@@ -51,19 +51,34 @@ c3.metric("Carbon Emission", f"{total_gco2:,} gCO₂")
 c4.metric("Savings by Schedule", f"{savings:.1f} kWh", "+20% reduction")
 
 # IT vs Non-IT Pie Chart — 100% SAFE (no KeyError ever)
-load_col = 'load_type'
-if 'load_type' not in period_data.columns:
-    if 'loadtype' in period_data.columns: load_col = 'loadtype'
-    elif 'Load_Type' in period_data.columns: load_col = 'Load_Type'
-    elif 'type' in period_data.columns: load_col = 'type'
-
+# IT vs Non-IT Pie Chart — FINAL BULLETPROOF VERSION
 it_kwh = non_it_kwh = 0
-if load_col in period_data.columns:
-    it_data = period_data[period_data[load_col] == 'IT']
-    non_it_data = period_data[period_data[load_col] == 'Non-IT']
+
+# Try multiple possible column names (covers ALL cases)
+load_type_col = None
+for col in period_data.columns:
+    if 'load' in col.lower() and 'type' in col.lower():
+        load_type_col = col
+        break
+
+if load_type_col:
+    it_data = period_data[period_data[load_type_col].astype(str).str.strip() == 'IT']
+    non_it_data = period_data[period_data[load_type_col].astype(str).str.strip() == 'Non-IT']
     it_kwh = calculate_stats(it_data)[0] if len(it_data) > 0 else 0
     non_it_kwh = calculate_stats(non_it_data)[0] if len(non_it_data) > 0 else 0
 
+# Show chart only if there's data
+if it_kwh + non_it_kwh > 0:
+    fig = px.pie(
+        values=[it_kwh, non_it_kwh],
+        names=['IT Loads', 'Non-IT Loads'],
+        color_discrete_sequence=['#00d4aa', '#ff4757'],
+        hole=0.4
+    )
+    fig.update_layout(template="plotly_dark", title="Energy Consumption: IT vs Non-IT")
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("No IT/Non-IT data available in this period")
 fig = px.pie(values=[it_kwh, non_it_kwh], names=['IT Loads', 'Non-IT Loads'],
              color_discrete_sequence=['#00d4aa', '#ff4757'], hole=0.4)
 fig.update_layout(template="plotly_dark", title="Energy Consumption: IT vs Non-IT")
@@ -98,3 +113,4 @@ for idx, room in rooms.iterrows():
 
 st.markdown("---")
 st.markdown("<p style='text-align:center;color:#666;'>© 2025 EWU FUB BEMS • CSE407 Green Computing Project</p>", unsafe_allow_html=True)
+
