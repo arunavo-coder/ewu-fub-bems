@@ -1,4 +1,4 @@
-# Home.py — FINAL, ABSOLUTELY PERFECT VERSION (2025-11-22)
+# Home.py — FINAL BULLETPROOF VERSION (Works with or without 'floor' column)
 import streamlit as st
 from datetime import date, timedelta
 import plotly.express as px
@@ -37,15 +37,22 @@ else:
     with col1: start_date = st.date_input("From", date.today() - timedelta(days=14))
     with col2: end_date = st.date_input("To", date.today())
 
-# === LOAD DATA ===
+# === LOAD DATA SAFELY ===
 devices = get_devices()
-# Extract rooms from devices (no separate rooms.csv needed!)
-rooms = devices[['room_id', 'room_name', 'floor']].drop_duplicates().sort_values('floor')
+
+# Create rooms dataframe safely (even if no 'floor' column)
+if 'floor' in devices.columns:
+    rooms = devices[['room_id', 'room_name', 'floor']].drop_duplicates().sort_values('floor')
+else:
+    # Auto-assign floors if missing
+    devices['floor'] = (devices.index // 6) + 4  # e.g., 4,4,4,4,4,4,5,5,...
+    rooms = devices[['room_id', 'room_name', 'floor']].drop_duplicates()
+
 period_data = get_period_data(start_date, end_date)
 
 # Merge load_type safely
 if not period_data.empty and 'device_id' in period_data.columns:
-    period_data = period_data.merge(devices[['device_id', 'load_type']], on='device_id', how='left')
+    period_data = period_data.merge(devices[['device_id', 'load_type']], on='device_id', how='left', suffixes=('', '_dev'))
 
 # === TOTAL BUILDING STATS ===
 total_kwh, total_taka, total_gco2 = calculate_stats(period_data)
@@ -65,7 +72,6 @@ if not period_data.empty and 'load_type' in period_data.columns:
     it_kwh = calculate_stats(it_data)[0] if len(it_data) > 0 else 0
     non_it_kwh = calculate_stats(non_it_data)[0] if len(non_it_data) > 0 else 0
 
-# Force display even if one is zero
 fig = px.pie(
     values=[max(it_kwh, 0.01), max(non_it_kwh, 0.01)],
     names=['IT Loads', 'Non-IT Loads'],
@@ -76,7 +82,7 @@ fig.update_traces(textinfo='percent+label+value', textposition='inside')
 fig.update_layout(title="IT vs Non-IT Energy Consumption", template="plotly_dark")
 st.plotly_chart(fig, use_container_width=True)
 
-# === FLOOR TABS — BEAUTIFUL & CLICKABLE ===
+# === FLOOR TABS — WORKS EVEN WITHOUT 'floor' COLUMN ===
 st.markdown("### Rooms by Floor")
 floors = sorted(rooms['floor'].unique())
 tabs = st.tabs([f"Floor {int(f)}" for f in floors])
@@ -92,9 +98,10 @@ for tab, floor in zip(tabs, floors):
                 live = get_current_readings(dev)
                 live_power = live['power']
                 
-                # kWh for this room in selected period
                 room_period = period_data[period_data['device_id'] == dev['device_id']]
                 room_kwh = calculate_stats(room_period)[0] if len(room_period) > 0 else 0.0
+                
+                load_type = dev.get('load_type', 'Unknown')
                 
                 st.markdown(f"""
                 <div class="room-tile">
@@ -104,15 +111,15 @@ for tab, floor in zip(tabs, floors):
                     </p>
                     <p style="color:#888;margin:5px 0;">{room_kwh:.2f} kWh this period</p>
                     <p style="color:#00bcd4;font-weight:bold;margin:5px 0;">
-                        {dev['load_type']} • Floor {int(floor)}
+                        {load_type} • Floor {int(floor)}
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("View Details →", key=f"btn_{room.room_id}_floor{floor}", use_container_width=True):
+                if st.button("View Details", key=f"btn_{room.room_id}_f{floor}", use_container_width=True):
                     st.session_state.selected_room = room.room_id
                     st.switch_page("pages/Room_Detail.py")
 
 # Footer
 st.markdown("---")
-st.caption("© 2025 EWU FUB BEMS • CSE407 Green Computing • Synthetic Data: 01–15 November 2025")
+st.caption("© 2025 EWU FUB BEMS • CSE407 Green Computing • Synthetic Data: 01–15 Nov 2025 • Made with ❤️ by You")
