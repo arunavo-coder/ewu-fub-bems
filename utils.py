@@ -100,16 +100,26 @@ def generate_synthetic_data():
     return df
 
 def get_current_readings(dev):
-    now = datetime.now().time()
+    now = datetime.now()
+    t = now.time()
     on_t = datetime.strptime(dev['schedule_on'], '%H:%M').time()
     off_t = datetime.strptime(dev['schedule_off'], '%H:%M').time()
-    scheduled_on = on_t <= t < off_t if on_t < off_t else t >= on_t or t < off_t
+    
+    scheduled_on = (on_t <= t < off_t) if on_t < off_t else (t >= on_t or t < off_t)
+    
     state = "on" if (dev['auto_schedule'] and scheduled_on) or dev['current_state'] == "on" else "off"
+    
     power = np.random.normal(dev['mean_power'], 200) if state == "on" else 0
     power = max(power, 0)
     voltage = np.random.normal(220, 5)
     current = power / voltage if power > 50 else 0
-    return {"power": round(power,2), "voltage": round(voltage,2), "current": round(current,3), "state": state}
+    
+    return {
+        "power": round(power, 2),
+        "voltage": round(voltage, 2),
+        "current": round(current, 3),
+        "state": state
+    }
 
 def get_period_data(start, end):
     df = get_measurements().copy()
@@ -120,4 +130,5 @@ def calculate_stats(df):
     energy_kwh = df['power'].sum() * (10/60) / 1000
     cost = energy_kwh * RATE_TAKA_PER_KWH
     carbon = energy_kwh * CO2_G_PER_KWH
+
     return round(energy_kwh, 3), round(cost, 1), int(carbon)
