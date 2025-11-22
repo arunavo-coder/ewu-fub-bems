@@ -6,14 +6,19 @@ from utils import *
 
 st.set_page_config(layout="wide")
 
-# === THIS IS THE ONLY CORRECT WAY IN 2025 ===
-try:
-    room_id = st.query_params["room"]
-except KeyError:
+# === THIS IS THE 100% WORKING WAY FOR MULTI-PAGE ===
+room_id = st.query_params.get("room", None)
+if room_id is None:
     st.error("No room selected")
+    st.info("Please select a room from the main dashboard")
+    if st.button("Go to Dashboard"):
+        st.switch_page("Home.py")
     st.stop()
 
-# Now it will NEVER show "No room selected" again
+# Now it works from dashboard clicks
+st.title(f"Room {room_id} – Detailed Monitoring")
+
+# Rest of your code stays the same...
 col1, col2 = st.columns([3,1])
 with col1:
     st.title(f"Room {room_id} – Detailed Monitoring")
@@ -78,3 +83,4 @@ with st.expander("Edit Schedule"):
         df.loc[df['device_id'] == device['device_id'], ['schedule_on','schedule_off']] = [str(on)[:-3], str(off)[:-3]]
         save(df, "devices.csv")
         st.success("Saved!"); st.rerun()
+
