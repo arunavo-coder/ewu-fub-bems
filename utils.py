@@ -28,13 +28,17 @@ def save(df, filename):
     df.to_csv(os.path.join(DATA_DIR, filename), index=False)
 
 def get_rooms():
-    return load("rooms.csv", ["room_id", "floor", "room_name", "room_type"], defaults=[
-        {"room_id": "101", "floor": 1, "room_name": "Classroom 101", "room_type": "Classroom"},
-        {"room_id": "102", "floor": 1, "room_name": "Classroom 102", "room_type": "Classroom"},
-        {"room_id": "103", "floor": 1, "room_name": "Computer Lab 103", "room_type": "IT Lab"},
-        {"room_id": "201", "floor": 2, "room_name": "Digital Lab 202", "room_type": "IT Lab"},
-        {"room_id": "305", "floor": 3, "room_name": "Classroom 305", "room_type": "Classroom"},
-        {"room_id": "501", "floor": 5, "room_name": "Server Room 501", "room_type": "IT Lab"},
+    return load("rooms.csv", ["room_id","floor","room_name","room_type"], defaults=[
+        {"room_id":"101","floor":1,"room_name":"Classroom 101","room_type":"Classroom"},
+        {"room_id":"102","floor":1,"room_name":"Classroom 102","room_type":"Classroom"},
+        {"room_id":"103","floor":1,"room_name":"Computer Lab 103","room_type":"IT Lab"},
+        {"room_id":"104","floor":1,"room_name":"Seminar Room 104","room_type":"Classroom"},
+        {"room_id":"201","floor":2,"room_name":"Classroom 201","room_type":"Classroom"},
+        {"room_id":"202","floor":2,"room_name":"Digital Lab 202","room_type":"IT Lab"},
+        {"room_id":"305","floor":3,"room_name":"Classroom 305","room_type":"Classroom"},
+        {"room_id":"401","floor":4,"room_name":"Faculty Lounge 401","room_type":"Non-IT"},
+        {"room_id":"501","floor":5,"room_name":"Server Room 501","room_type":"IT Lab"},
+        {"room_id":"502","floor":5,"room_name":"Conference Room 502","room_type":"Classroom"},
     ])
 
 def get_devices():
@@ -44,7 +48,7 @@ def get_devices():
             "device_id": f"AC-{r['room_id']}",
             "room_id": r['room_id'],
             "name": "Air Conditioner",
-            "load_type": "IT" if "IT" in r['room_type'] else "Non-IT",
+            "load_type": "Non-IT",
             "current_state": "off",
             "auto_schedule": True,
             "schedule_on": "08:00",
