@@ -53,4 +53,5 @@ for floor in sorted(get_rooms().floor.unique()):
             """, True)
             if st.button("View Details", key=r.room_id, use_container_width=True):
                 st.query_params["room"] = r.room_id
-                st.switch_page("pages/Room_Detail.py")
+                st.switch_page("pages/room_detail.py")
+
