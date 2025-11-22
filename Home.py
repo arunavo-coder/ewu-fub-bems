@@ -184,8 +184,9 @@ for floor in floors:
 
                 if st.button("View Details", key=f"btn_{room.room_id}", use_container_width=True):
                     st.query_params["room"] = room.room_id
-                    st.switch_page("pages/1_Room_Detail.py")
+                    st.switch_page("pages/Room_Detail.py")
 
 # Footer
 
 st.markdown("<br><hr><p style='text-align:center; color:#666;'>CSE407 Green Computing • Midterm Project • EWU FUB BEMS Demo • 2025</p>", unsafe_allow_html=True)
+
