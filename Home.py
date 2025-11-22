@@ -168,14 +168,18 @@ for floor in floors:
                 icon = "air conditioner" if live_power > 50 else "air conditioner off"
 
                 st.markdown(f"""
-                <div class="room-tile">
-                    <h3 style="color:#00d4aa; margin:0;">{room.room_name}</h3>
-                    <p style="margin:5px 0; font-size:1.3rem; color:{'#ff4757' if live_power>50 else '#2ed573'}">
-                        <span class="{status}">{live_power:.0f} W</span>
-                    </p>
-                    <p style="color:#888; margin:5px 0;">{period_kwh:.2f} kWh ({'IT' if dev['load_type']=='IT' else 'Non-IT'})</p>
-                    <p style="margin:5px 0;">Auto-schedule: {'ON</p>
-                </div>
+              <div class="room-tile">
+    <h3 style="color:#00d4aa; margin:0;">{room.room_name}</h3>
+    <p style="margin:8px 0; font-size:1.4rem; color:{'#ff4757' if live_power>50 else '#2ed573'}">
+        {live_power:.0f} W
+    </p>
+    <p style="color:#888; margin:5px 0; font-size:0.95rem;">
+        {period_kwh:.2f} kWh • {dev['load_type']} Load
+    </p>
+    <p style="color:#00d4aa; font-size:0.9rem;">
+        Auto-schedule: {"ON" if dev['auto_schedule'] else "OFF"}
+    </p>
+</div>
                 """, unsafe_allow_html=True)
 
                 if st.button("View Details", key=f"btn_{room.room_id}", use_container_width=True):
@@ -183,4 +187,5 @@ for floor in floors:
                     st.switch_page("pages/1_Room_Detail.py")
 
 # Footer
+
 st.markdown("<br><hr><p style='text-align:center; color:#666;'>CSE407 Green Computing • Midterm Project • EWU FUB BEMS Demo • 2025</p>", unsafe_allow_html=True)
