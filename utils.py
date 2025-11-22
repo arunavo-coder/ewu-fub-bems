@@ -1,73 +1,100 @@
-# utils.py — 100% STANDALONE (NO CSV FILES NEEDED)
-import streamlit as st
 import pandas as pd
-import random
+import numpy as np
 from datetime import datetime, timedelta
+import os
 
-# BUILT-IN DEVICES (NO devices.csv NEEDED)
-@st.cache_data
-def get_devices():
-    data = {
-        'device_id': [f"D{i:03d}" for i in range(1, 16)],
-        'room_id': ['R101','R102','R103','R104','R201','R202','R203','R204','R301','R302','R401','R402','R403','R501','R502'],
-        'room_name': ['Lab 101','Lab 102','Lab 103','Classroom 104','Lab 201','Lab 202','Lab 203','Classroom 204',
-                      'Lab 301','Lab 302','Lab 401','Lab 402','Classroom 403','Faculty Room 501','Meeting Room 502'],
-        'load_type': ['IT','IT','IT','Non-IT','IT','IT','IT','Non-IT','IT','IT','IT','IT','Non-IT','Non-IT','Non-IT'],
-        'floor': [1,1,1,1,2,2,2,2,3,3,4,4,4,5,5],
-        'current_state': ['on','on','off','on','on','on','off','on','on','on','on','on','off','on','off'],
-        'auto_schedule': [True,True,False,True,True,True,False,True,True,True,True,True,True,True,False],
-        'schedule_on': ['08:00']*15,
-        'schedule_off': ['20:00','20:00','18:00','16:00','21:00','21:00','19:00','17:00','20:00','20:00','22:00','22:00','16:00','17:00','18:00']
-    }
-    return pd.DataFrame(data)
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
-# BUILT-IN ROOMS
-@st.cache_data
-def get_rooms():
-    devices = get_devices()
-    return devices[['room_id', 'room_name', 'floor']].drop_duplicates().reset_index(drop=True)
+RATE_TAKA_PER_KWH = 7.8
+CO2_G_PER_KWH = 620
 
-# GENERATE FAKE READINGS (NO readings.csv NEEDED)
-@st.cache_data(ttl=300)
-def get_period_data(start_date, end_date):
-    devices = get_devices()
-    dates = pd.date_range(start=f"2025-11-01", end=f"2025-11-15", freq='5min')
-    rows = []
-    
-    for _, dev in devices.iterrows():
-        base_power = 1500 if dev['current_state'] == 'on' else 0
-        for ts in dates:
-            if start_date <= ts.date() <= end_date:
-                power = max(0, base_power + random.randint(-300, 400))
-                rows.append({
-                    'timestamp': ts,
-                    'device_id': dev['device_id'],
-                    'power': power,
-                    'voltage': 220 + random.randint(-15, 15),
-                    'current': round(power / 220, 2) if power > 0 else 0
-                })
-    
-    return pd.DataFrame(rows)
+def load(filename, columns, defaults=None):
+    path = os.path.join(DATA_DIR, filename)
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = np.nan
+        return df[columns]
+    else:
+        df = pd.DataFrame(columns=columns)
+        if defaults:
+            df = pd.concat([df, pd.DataFrame(defaults)], ignore_index=True)
+        df.to_csv(path, index=False)
+        return df
 
-# LIVE READING SIMULATION
-def get_current_readings(device):
-    base = 1500 if device['current_state'] == 'on' else 0
-    power = max(0, base + random.randint(-200, 300))
-    return {
-        'power': power,
-        'voltage': 220 + random.randint(-10, 10),
-        'current': round(power / 220, 2) if power > 0 else 0
-    }
-
-# STATS
-def calculate_stats(data):
-    if data.empty or 'power' not in data.columns:
-        return 0, 0, 0
-    kwh = data['power'].sum() / 12000
-    taka = kwh * 8.5
-    gco2 = kwh * 700
-    return round(kwh, 2), round(taka), int(gco2)
-
-# SAVE (FAKE — JUST FOR UI)
 def save(df, filename):
-    pass  # No file system, but buttons still work
+    df.to_csv(os.path.join(DATA_DIR, filename), index=False)
+
+def get_rooms():
+    return load("rooms.csv", ["room_id", "floor", "room_name", "room_type"], defaults=[
+        {"room_id": "101", "floor": 1, "room_name": "Classroom 101", "room_type": "Classroom"},
+        {"room_id": "102", "floor": 1, "room_name": "Classroom 102", "room_type": "Classroom"},
+        {"room_id": "103", "floor": 1, "room_name": "Computer Lab 103", "room_type": "IT Lab"},
+        {"room_id": "201", "floor": 2, "room_name": "Digital Lab 202", "room_type": "IT Lab"},
+        {"room_id": "305", "floor": 3, "room_name": "Classroom 305", "room_type": "Classroom"},
+        {"room_id": "501", "floor": 5, "room_name": "Server Room 501", "room_type": "IT Lab"},
+    ])
+
+def get_devices():
+    defaults = []
+    for _, r in get_rooms().iterrows():
+        defaults.append({
+            "device_id": f"AC-{r['room_id']}",
+            "room_id": r['room_id'],
+            "name": "Air Conditioner",
+            "load_type": "IT" if "IT" in r['room_type'] else "Non-IT",
+            "current_state": "off",
+            "auto_schedule": True,
+            "schedule_on": "08:00",
+            "schedule_off": "20:00",
+            "mean_power": np.random.randint(1200, 1800)
+        })
+    return load("devices.csv", ["device_id","room_id","name","load_type","current_state","auto_schedule","schedule_on","schedule_off","mean_power"], defaults)
+
+def get_measurements():
+    path = os.path.join(DATA_DIR, "measurements.csv")
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        return df
+    return generate_synthetic_data()
+
+def generate_synthetic_data():
+    devices = get_devices()
+    all_data = []
+    start = datetime.now() - timedelta(days=30)
+    times = pd.date_range(start, datetime.now(), freq='10T')
+    for _, dev in devices.iterrows():
+        on_t = datetime.strptime(dev['schedule_on'], '%H:%M').time()
+        off_t = datetime.strptime(dev['schedule_off'], '%H:%M').time()
+        for ts in times:
+            t = ts.time()
+            scheduled = (on_t <= t < off_t) if on_t < off_t else (t >= on_t or t < off_t)
+            state = "on" if (dev['auto_schedule'] and scheduled) or dev['current_state'] == "on" else "off"
+            power = np.random.normal(dev['mean_power'], 200) if state == "on" else 0
+            power = max(power, 0)
+            all_data.append({"timestamp": ts, "device_id": dev['device_id'], "power": round(power, 2)})
+    df = pd.DataFrame(all_data)
+    save(df, "measurements.csv")
+    return df
+
+def get_current_readings(dev):
+    now = datetime.now().time()
+    on_t = datetime.strptime(dev['schedule_on'], '%H:%M').time()
+    off_t = datetime.strptime(dev['schedule_off'], '%H:%M').time()
+    scheduled = (on_t <= now < off_t) if on_t < off_t else (now >= on_t or now < off_t)
+    state = "on" if (dev['auto_schedule'] and scheduled) or dev['current_state'] == "on" else "off"
+    power = np.random.normal(dev['mean_power'], 200) if state == "on" else 0
+    power = max(power, 0)
+    return {"power": round(power, 2), "state": state}
+
+def get_period_data(start, end):
+    df = get_measurements()
+    mask = (df['timestamp'].dt.date >= start) & (df['timestamp'].dt.date <= end)
+    return df[mask]
+
+def calculate_stats(df):
+    kwh = df['power'].sum() * (10/60) / 1000
+    return round(kwh, 3), round(kwh * RATE_TAKA_PER_KWH, 1), int(kwh * CO2_G_PER_KWH)
